@@ -47,7 +47,22 @@ int closeProcess(HANDLE *hProcess)
 		printf("Error code: %d\n", FormatMessageW(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
 			NULL, GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
 			buf, (sizeof(buf) / sizeof(wchar_t)), NULL));
+		return 1;
 	}
 	return 0;
 }
 
+int openSemaphore(HANDLE *semaphoreh, long initCount, long maxCount, char* name)
+{
+	*semaphoreh = CreateSemaphoreA(NULL, initCount, maxCount, name);
+	if (semaphoreh == NULL)
+	{
+		printf("Error occured during creating semaphore\n");
+		wchar_t buf[256];
+		printf("Error code: %d\n", FormatMessageW(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+			NULL, GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+			buf, (sizeof(buf) / sizeof(wchar_t)), NULL));
+		return 1;
+	}
+	return 0;
+}

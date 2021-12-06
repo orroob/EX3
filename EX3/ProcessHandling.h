@@ -33,4 +33,6 @@ int openThread(HANDLE* threadHandle, LPTHREAD_START_ROUTINE function, VOID* para
 /// <returns>Returns 0 if secceeded, 1 otherwise.</returns>
 int closeProcess(HANDLE* hProcess);
 
+
+int openSemaphore(HANDLE* semaphoreh, long initCount, long maxCount, char* name);
 #endif
