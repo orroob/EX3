@@ -66,3 +66,16 @@ int openSemaphore(HANDLE *semaphoreh, long initCount, long maxCount, char* name)
 	}
 	return 0;
 }
+
+int OpensMutex(HANDLE* mutex) {
+	*mutex = CreateMutexA(
+		NULL,	/* default security attributes */
+		FALSE,	/* initially not owned */
+		NULL);	/* unnamed mutex */
+	if (NULL == mutex)
+	{
+		printf("Error when creating mutex: %d\n", GetLastError());
+		return 1;
+	}
+	return 0;
+}

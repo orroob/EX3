@@ -37,12 +37,28 @@ typedef struct ThreadParameters
 
 Frame* FramesArr;
 HANDLE GlobalSemaphore;
-
+DWORD ret_val;
+HANDLE mutex = NULL;
 void updateFrame(int frameID, int pageID, int finishTime)
 {
+	ret_val = WaitForSingleObject(mutex, 10000);//lock mutex
+	if (WAIT_TIMEOUT == ret_val) {
+		//goto clock_approved; 
+	}
+	else if (WAIT_OBJECT_0 != ret_val)
+	{
+		//printf("error getting mutex , error number %x\n", GetLastError());
+		//goto clock_approved;
+	}
+
 	FramesArr[frameID].finish_time = finishTime;
 	FramesArr[frameID].PageID = pageID;
 	FramesArr[frameID].valid = 1;
+	if (!ReleaseMutex(mutex))//unlock mutex
+	{
+		printf("error releasing mutex , pageID %d\n", pageID);
+		//maybe handle it better
+	}
 }
 
 DWORD WINAPI threadExecute(Params *parameters)
@@ -99,6 +115,9 @@ int main(int argc, char* argv[])
 {
 	int a = (atoi(argv[1]) - 12), b = (atoi(argv[2]) - 12);
 	long maxPage = pow(2, a), maxFrame = pow(2, b);
+	if (OpensMutex(&mutex)) { // initialize one mutex that will be shared among all threads.
+		return 1; // couldnt open mutex
+	}
 
 	// allocate memory for frames array
 	if ((FramesArr = malloc(maxFrame * sizeof(Frame))) == NULL)
