@@ -37,12 +37,15 @@ typedef struct ThreadParameters
 
 Frame* FramesArr;
 HANDLE GlobalSemaphore;
-
+DWORD ret_val;
+HANDLE mutex = NULL;
 void updateFrame(int frameID, int pageID, int finishTime)
 {
+
 	FramesArr[frameID].finish_time = finishTime;
 	FramesArr[frameID].PageID = pageID;
 	FramesArr[frameID].valid = 1;
+
 }
 
 DWORD WINAPI threadExecute(Params *parameters)
@@ -53,7 +56,21 @@ DWORD WINAPI threadExecute(Params *parameters)
 	{
 		if (FramesArr[i].PageID == pageID)
 		{
+			ret_val = WaitForSingleObject(mutex, 10000);//lock mutex
+			if (WAIT_TIMEOUT == ret_val) {
+				//goto clock_approved; 
+			}
+			else if (WAIT_OBJECT_0 != ret_val)
+			{
+				//printf("error getting mutex , error number %x\n", GetLastError());
+				//goto clock_approved;
+			}
 			updateFrame(i, pageID, arrivalTime + timeOfUse);
+			if (!ReleaseMutex(mutex))//unlock mutex
+			{
+				printf("error releasing mutex , pageID %d\n", pageID);
+				//maybe handle it better
+			}
 			return 0;
 		}
 	}
@@ -64,10 +81,25 @@ DWORD WINAPI threadExecute(Params *parameters)
 	{
 		if (FramesArr[i].valid == 0)
 		{
+			ret_val = WaitForSingleObject(mutex, 10000);//lock mutex
+			if (WAIT_TIMEOUT == ret_val) {
+				//goto clock_approved; 
+			}
+			else if (WAIT_OBJECT_0 != ret_val)
+			{
+				//printf("error getting mutex , error number %x\n", GetLastError());
+				//goto clock_approved;
+			}
 			updateFrame(i, pageID, arrivalTime + timeOfUse);
+			if (!ReleaseMutex(mutex))//unlock mutex
+			{
+				printf("error releasing mutex , pageID %d\n", pageID);
+			
+			}
 			break;
 		}
 	}
+	//if we got here all frames are occupied. wait with the thread 
 
 	if (!ReleaseSemaphore(GlobalSemaphore, 1, NULL))
 	{
@@ -99,6 +131,9 @@ int main(int argc, char* argv[])
 {
 	int a = (atoi(argv[1]) - 12), b = (atoi(argv[2]) - 12);
 	long maxPage = pow(2, a), maxFrame = pow(2, b);
+	if (OpensMutex(&mutex)) { // initialize one mutex that will be shared among all threads.
+		return 1; // couldnt open mutex
+	}
 
 	// allocate memory for frames array
 	if ((FramesArr = malloc(maxFrame * sizeof(Frame))) == NULL)
@@ -150,18 +185,31 @@ int main(int argc, char* argv[])
 	char* temp = data;
 
 	const char delim[] = "\n";
-	Params *p[10];
+	Params *p[10]; /////////////////////////////
 	p[0] = malloc(10*sizeof(Params*));
 	p[1] = malloc(10 * sizeof(Params*));
-	int arrivalTime = 0, pageID = 0, timeOfUse = 0;
+	int arrivalTime = 0, pageID = 0, timeOfUse = 0, count = 0;
 
-	char* line = strtok_s(data, delim, &data);
+	char* line;
+	line = malloc(sizeof(char*)*10);// checkkkkkk
+	 while (line!= NULL){
+		 line = strtok_s(data, delim, &data);
+		 if (line == NULL) 
+			 break;
+		 ParseData(line, &arrivalTime, &pageID, &timeOfUse);
 
-	line = strtok_s(data, delim, &data);
+		 p[count]->arrivalTime = arrivalTime;
+		 p[count]->maxFrame = maxFrame;
+		 p[count]->pageID = pageID;
+		 p[count]->timeOfUse = timeOfUse;
+		 count++;
+	 }
 
-	ParseData(line, &arrivalTime, &pageID, &timeOfUse);
+	//line = strtok_s(data, delim, &data);
+
+	//ParseData(line, &arrivalTime, &pageID, &timeOfUse);
 	
-	p[0]->arrivalTime = arrivalTime;
+/*p[0]->arrivalTime = arrivalTime;
 	p[0]->maxFrame = maxFrame;
 	p[0]->pageID= pageID;
 	p[0]->timeOfUse= timeOfUse;
@@ -175,6 +223,7 @@ int main(int argc, char* argv[])
 	p[1]->maxFrame = maxFrame;
 	p[1]->pageID = pageID;
 	p[1]->timeOfUse = timeOfUse;
+	*/
 	
 	HANDLE threadh = NULL, threadh2 = NULL, threadh3 = NULL;
 	DWORD threadIDs[10];
