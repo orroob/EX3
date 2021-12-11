@@ -67,7 +67,23 @@ int openSemaphore(HANDLE *semaphoreh, long initCount, long maxCount, char* name)
 	return 0;
 }
 
-int OpensMutex(HANDLE* mutex) {
+int openEvent(HANDLE *event, int manualReset, int initState, char *name)
+{
+	*event = CreateEventA(NULL, manualReset, initState, name);
+	if (event == NULL)
+	{
+		printf("Error occured during creating semaphore\n");
+		wchar_t buf[256];
+		printf("Error code: %d\n", FormatMessageW(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+			NULL, GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+			buf, (sizeof(buf) / sizeof(wchar_t)), NULL));
+		return 1;
+	}
+	return 0;
+}
+
+int OpensMutex(HANDLE* mutex)
+{
 	*mutex = CreateMutexA(
 		NULL,	/* default security attributes */
 		FALSE,	/* initially not owned */

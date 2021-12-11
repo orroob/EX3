@@ -35,4 +35,8 @@ int closeProcess(HANDLE* hProcess);
 
 
 int openSemaphore(HANDLE* semaphoreh, long initCount, long maxCount, char* name);
+
+
+int openEvent(HANDLE* event, int manualReset, int initState, char* name);
+
 #endif
