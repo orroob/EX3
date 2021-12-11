@@ -225,7 +225,7 @@ int main(int argc, char* argv[])
 	}
 
 	// open output file
-	if (openFile(outputFile, "Output.txt", WRITE))
+	if (openFile(&outputFile, "Output.txt", WRITE))
 	{
 		return 1;
 	}
