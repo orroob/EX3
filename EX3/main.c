@@ -40,6 +40,8 @@ HANDLE GlobalSemaphore;
 DWORD ret_val;
 HANDLE mutex = NULL;
 HANDLE timingEvent = NULL;
+HANDLE outputFile = NULL;
+int globalClock;
 
 void updateFrame(int frameID, int pageID, int finishTime)
 {
@@ -58,7 +60,6 @@ DWORD WINAPI threadExecute(Params* parameters)
 	{
 		if (FramesArr[i].PageID == pageID)
 		{
-
 			SetEvent(timingEvent);
 			ret_val = WaitForSingleObject(mutex, INFINITE);//lock mutex
 			if (WAIT_TIMEOUT == ret_val) 
@@ -83,14 +84,15 @@ DWORD WINAPI threadExecute(Params* parameters)
 
 	SetEvent(timingEvent);
 	WaitForSingleObject(GlobalSemaphore, INFINITE);
-
-	for (int i = 0; i < maxFrame; i++)
+	int i = 0;
+find_free_frame:
+	for (i = 0; i < maxFrame; i++)
 	{
 		if (FramesArr[i].valid == 0)
 		{
-			ret_val = WaitForSingleObject(mutex, 10000);//lock mutex
+			ret_val = WaitForSingleObject(mutex, 5000);//lock mutex
 			if (WAIT_TIMEOUT == ret_val) {
-				//goto clock_approved; 
+				goto find_free_frame;
 			}
 			else if (WAIT_OBJECT_0 != ret_val)
 			{
@@ -106,7 +108,36 @@ DWORD WINAPI threadExecute(Params* parameters)
 			break;
 		}
 	}
-	//if we got here all frames are occupied. wait with the thread 
+	
+	// got a frame, wait to release it
+
+	while (globalClock < arrivalTime + timeOfUse);
+
+	release_frame:
+	ret_val = WaitForSingleObject(mutex, 5000);//lock mutex
+	if (WAIT_TIMEOUT == ret_val) {
+		goto release_frame;
+	}
+	else if (WAIT_OBJECT_0 != ret_val)
+	{
+		//printf("error getting mutex , error number %x\n", GetLastError());
+		//goto release_frame;
+	}
+
+	char buffer[200] = { 0 };
+	int a = 0;
+	sprintf(buffer, "%d %d %d %s", FramesArr[i].finish_time, pageID, i, "E");
+	if (WriteToFile(outputFile, buffer, strlen(buffer)))
+	{
+
+	}
+	FramesArr[i].valid = 0;
+
+	if (!ReleaseMutex(mutex))//unlock mutex
+	{
+		printf("error releasing mutex , pageID %d\n", pageID);
+
+	}
 
 	if (!ReleaseSemaphore(GlobalSemaphore, 1, NULL))
 	{
@@ -188,6 +219,16 @@ int main(int argc, char* argv[])
 		printf("Error reading from file\n");
 		return 1;
 	}
+	if (closeFile(&inputFile))
+	{
+		return 1;
+	}
+
+	// open output file
+	if (openFile(outputFile, "Output.txt", WRITE))
+	{
+		return 1;
+	}
 
 	if (openEvent(&timingEvent, 1, 1, NULL))
 	{
@@ -197,15 +238,20 @@ int main(int argc, char* argv[])
 	char* temp = data;
 
 	const char delim[] = "\n";
-	Params* p[1]; /////////////////////////////
-	p[0] = malloc(1 * sizeof(Params*));
+	Params** p; /////////////////////////////
+	p = malloc(10 * sizeof(Params*));
+
 	
-	int arrivalTime = 0, pageID = 0, timeOfUse = 0;
-	HANDLE threadh = NULL, threadh2 = NULL, threadh3 = NULL;
+	int arrivalTime = 0, pageID = 0, timeOfUse = 0, counter = -1;
+	HANDLE* threads = NULL;
 	DWORD threadIDs[10];
 
+	threads = malloc(10 * sizeof(HANDLE));
+
 	char* line;
-	line = malloc(sizeof(char*) * 100);// checkkkkkk
+ 	line = malloc(sizeof(char*) * 100);// checkkkkkk
+	char* temp2 = line;
+
 	if (line == NULL)
 	{
 		return 1;
@@ -213,69 +259,68 @@ int main(int argc, char* argv[])
 
 	while (line != NULL) 
 	{
+
+		counter++;
+		p[counter] = malloc(100);// * sizeof(Params));
+
 		line = strtok_s(data, delim, &data);
 		if (line == NULL)
 			break;
 		ParseData(line, &arrivalTime, &pageID, &timeOfUse);
 
-		p[0]->arrivalTime = arrivalTime;
-		p[0]->maxFrame = maxFrame;
-		p[0]->pageID = pageID;
-		p[0]->timeOfUse = timeOfUse;
+		p[counter]->arrivalTime = arrivalTime;
+		p[counter]->maxFrame = maxFrame;
+		p[counter]->pageID = pageID;
+		p[counter]->timeOfUse = timeOfUse;
 		
 		WaitForSingleObject(timingEvent, INFINITE);
-		if (openThread(&threadh, &threadExecute, p[0], &threadIDs[0]))
+		globalClock = arrivalTime;
+		if (openThread(&(threads[counter]), &threadExecute, p[counter], &threadIDs[0]))
 		{
 			printf("error opening Thread \n");	//Thread won't open, Inform the User and Continue
+			free(temp2);
 			free(temp);
 			free(FramesArr);
-			free(p[0]);
+			
+			for (int i = 0; i < counter; i++)
+			{
+				free(p[i]);
+			}
+			free(p);
 			return 1;
 		}
 		ResetEvent(timingEvent);
+		//printf("%d\n", FramesArr[0].finish_time);
+		if (counter % 10 == 0)
+		{
+			threads = realloc(threads, (counter + 10) * sizeof(HANDLE));
+			p = realloc(p, (counter + 10) * sizeof(HANDLE));
+		}
 	}
-
-	//line = strtok_s(data, delim, &data);
-
-	//ParseData(line, &arrivalTime, &pageID, &timeOfUse);
-
-/*p[0]->arrivalTime = arrivalTime;
-	p[0]->maxFrame = maxFrame;
-	p[0]->pageID= pageID;
-	p[0]->timeOfUse= timeOfUse;
-
-	line = strtok_s(data, delim, &data);
-	line = strtok_s(data, delim, &data);
-
-	ParseData(line, &arrivalTime, &pageID, &timeOfUse);
-
-	p[1]->arrivalTime = arrivalTime;
-	p[1]->maxFrame = maxFrame;
-	p[1]->pageID = pageID;
-	p[1]->timeOfUse = timeOfUse;
-	*/
-
-	
-	if (openThread(&threadh, &threadExecute, p[0], &threadIDs[0]))
+	for (int i = 0; i < maxFrame; i++)
 	{
-		printf("error opening Thread \n");	//Thread won't open, Inform the User and Continue
-		free(temp);
-		return 1;
+		if (globalClock < FramesArr[i].finish_time)
+			globalClock = FramesArr[i].finish_time;
 	}
-	if (openThread(&threadh2, &threadExecute, p[1], &threadIDs[0]))
+
+	// -- wait --
+
+	for (int i = 0; i < counter; i++)
 	{
-		printf("error opening Thread \n");	//Thread won't open, Inform the User and Continue
-		free(temp);
-		return 1;
+		closeProcess(&(threads[i]));
 	}
 
-	WaitForSingleObject(threadh2, INFINITE);
+	free(threads);
 
+	for (int i = 0; i <= counter; i++)
+	{
+		free(p[i]);
+	}
+	free(p);
+	free(temp2);
 	free(FramesArr);
-	free(p[0]);
-	//free(p[]);
 	free(temp);
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
-	printf("%d\n", _CrtDumpMemoryLeaks()); // check for memory leaks
+	a = ("%d\n", _CrtDumpMemoryLeaks()); // check for memory leaks
 	return 0;
 }
